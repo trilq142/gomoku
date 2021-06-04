@@ -1,24 +1,30 @@
 //Tri Le
 //CS410 RUST
-use std::cmp::PartialEq;
-use std::collections::HashMap;
-// use std::ops::{Index, IndexMut};
+use rand::Rng;
 pub const MAX: usize = 20;
 pub const DISTANCE: usize = 3;
-pub const MAX_DEPTH: usize = 6;
-pub const MAX_WIDTH: usize = 10;
-#[derive(Eq, PartialEq, Hash, Debug, Clone)]
+
+pub const WIN: i16 = 10;
+pub const LOSE: i16 = -10;
+pub const DRAW: i16 = 0;
+pub const UNKNOWN: i16 = std::i16::MAX;
+
+#[derive(Default, Eq, PartialEq, Hash, Debug, Clone)]
 pub struct Point {
     pub x: usize,
     pub y: usize,
 }
+
 impl Point {
     pub fn new(x: usize, y: usize) -> Self {
         Self { x, y }
     }
 }
 
-#[derive(Debug, Clone)]
+use std::cmp::PartialEq;
+use std::collections::HashMap;
+
+#[derive(Default, Debug, Clone)]
 pub struct Player {
     pub side: u8,
     pub point_dic: Vec<Point>,
@@ -34,388 +40,253 @@ impl Player {
         }
     }
 
-    // fn update(&mut self, point: Point, count: u16) {
-    //     if self.point_dic.contains_key(&point) {
-    //         let change = count as i32 - self.point_dic[&point] as i32;
-    //         self.total_score += change;
-    //         self.point_dic.entry(point).and_modify(|e| *e = count);
-    //     } else {
-    //         self.point_dic.insert(point, count);
-    //         self.total_score += count as i32;
-    //     }
-    // }
-    
-
-
-
-
-    fn check_horizon(
+    fn check_line(
         &mut self,
-        point: Point,
-        matrix: &mut [[u8; MAX]; MAX],
-        test: &mut i32,
+        point: &Point,
+        matrix: &[[u8; MAX]; MAX],
+        test_point: &mut f32,
     ) -> bool {
-        let mut adjacent_count = 1;
-        let mut count = 0;
-        let mut count_adjacent_flag = true;
-        let mut count_flag = true;
-        let mut count_space = 0;
-        let mut first_space_count = 0;
-        for c in 1..5 {
-            if point.y + c == MAX {
-                break;
-            }
-            if matrix[point.x][point.y + c] == self.side {
-                if count_adjacent_flag {
-                    adjacent_count += 1;
-                }
-            } else {
-                count_adjacent_flag = false;
-            }
-            if matrix[point.x][point.y + c] != self.opposite_side() {
-                if count_flag {
-                    if matrix[point.x][point.y + c] == self.side {
-                        count += 1;
-                    } else {
-                        count_space+=1;
-                        if c == 1 {
-                            first_space_count += 1;
-                        }
-                    }
-                }
-            } else {
-                count_flag = false;
-            }
-            if (count_adjacent_flag == false && count_flag == false) || count_space == 2 {
-                break;
-            }
-        }
-        count_adjacent_flag = true;
-        let mut count_flag2 = true;
-        count_space = 0;
-        for c in 1..5 {
-            if point.y as i16 - c as i16 == -1 {
-                break;
-            }
-            if matrix[point.x][point.y - c] == self.side {
-                if count_adjacent_flag {
-                    adjacent_count += 1;
-                }
-            } else {
-                count_adjacent_flag = false;
-            }
-            if matrix[point.x][point.y - c] != self.opposite_side() {
-                if count_flag2 {
-                    if matrix[point.x][point.y - c] == self.side {
-                        count += 1;
-                    } else {
-                        count_space +=1;
-                        if c == 1 {
-                            first_space_count +=1;
-                        }
-                    }
-                }
-            } else {
-                count_flag2 = false;
-            }
-            if (count_adjacent_flag == false && count_flag2 == false) || count_space == 2{
-                break;
-            }
-        }
-        if *test == std::i32::MAX {          
-            if (count_flag == false || count_flag2 == false)  && count < 4 {
-                count = 0;
-            }
-            if first_space_count == 2 {
-                count -= 1;
-            }
-            *test = count;
-        }
-        if adjacent_count >= 5 {
-            return true;
-        }
-        false
-    }
+        let compound_samples: Vec<(i16, Vec<String>, f32)> = vec![
+            (2, vec!["_XX#XO".to_string(), "_XX#XO".to_string()], 200.0),
+            (2, vec!["_XX#XO".to_string(), "_X#XXO".to_string()], 200.0),
+            (2, vec!["_XXX#O".to_string(), "_X#XXO".to_string()], 200.0),
+            (2, vec!["_#XXXO".to_string(), "_#XXXO".to_string()], 200.0),
+            (2, vec!["_#XXXO".to_string(), "_#X_X_".to_string()], 150.0),
+            (2, vec!["_#XXXO".to_string(), "_#XX_".to_string()], 150.0),
+            (2, vec!["_X#XXO".to_string(), "_#XX_".to_string()], 150.0),
+            (1, vec!["_#X_X_".to_string(), "#_XX_".to_string()], 100.0),
+            (3, vec!["_#XX_".to_string(), "_X#X_".to_string()], 100.0),
+            (3, vec!["_X#X_".to_string(), "_X#X_".to_string()], 100.0),
+            (4, vec!["_X#XXO".to_string(), "_X#X_".to_string()], 100.0),
+            (5, vec!["#XXX_O".to_string()], 100.0),
+            (6, vec!["#XX_XO".to_string()], 100.0),
+            (7, vec!["#X_XXO".to_string()], 100.0),
+            (8, vec!["_X#X_".to_string(), "_X#X_".to_string()], 100.0),
+            (9, vec!["_#XX_".to_string(), "_#XX_".to_string()], 100.0),
+            (10, vec!["#XXX_".to_string()], 100.0),
+            (11, vec!["_X#XX_".to_string()], 100.0),
+            (12, vec!["_X#X_".to_string()], 50.0),
+            (12, vec!["_X_#_X_".to_string()], 50.0),
+            (12, vec!["_XX_#_".to_string()], 50.0),
+            (13, vec!["_#XX_".to_string()], 50.0),
+            (14, vec!["_#XXXO".to_string()], 10.0),
+            (15, vec!["_#X__".to_string()], 5.0),
+            (8, vec!["#X_".to_string()], 1.0),
+        ];
+        let winning_samples: Vec<(u16, String, f32)> = vec![
+            (1, "#XXXX".to_string(), 1000.0),
+            (2, "X#XXX".to_string(), 1000.0),
+            (3, "XX#XX".to_string(), 1000.0),
+        ];
 
-    fn check_vertical(
-        &mut self,
-        point: Point,
-        matrix: &mut [[u8; MAX]; MAX],
-        test: &mut i32,
-    ) -> bool {
-        let mut adjacent_count = 1;
-        let mut count = 0;
-        let mut count_adjacent_flag = true;
-        let mut count_flag = true;
-        let mut count_space = 0;
-        let mut first_space_count = 0;
-        for c in 1..5 {
-            if point.x + c == MAX {
-                break;
-            }
-            if matrix[point.x + c][point.y] == self.side {
-                if count_adjacent_flag {
-                    adjacent_count += 1;
-                }
-            } else {
-                count_adjacent_flag = false;
-            }
-            if matrix[point.x + c][point.y] != self.opposite_side() {
-                if count_flag {
-                    if matrix[point.x + c][point.y] == self.side {
-                        count += 1;
-                    } else {
-                        count_space +=1;
-                        if c == 1 {
-                            first_space_count += 1;
-                        }
+        fn back(point: &Point, c: usize, direction: u8) -> Result<Point, bool> {
+            match direction {
+                //Horizon
+                1 => {
+                    if point.y as i16 - c as i16 >= 0 {
+                        return Ok(Point::new(point.x, point.y - c));
                     }
+                    Err(false)
                 }
-            } else {
-                count_flag = false;
-            }
-            if (count_adjacent_flag == false && count_flag == false) || count_space == 2 {
-                break;
-            }
-        }
-        count_adjacent_flag = true;
-        let mut count_flag2 = true;
-        count_space = 0;
-        for c in 1..5 {
-            if point.x as i16 - c as i16 == -1 {
-                break;
-            }
-            if matrix[point.x - c][point.y] == self.side {
-                if count_adjacent_flag {
-                    adjacent_count += 1;
-                }
-            } else {
-                count_adjacent_flag = false;
-            }
-            if matrix[point.x - c][point.y] != self.opposite_side() {
-                if count_flag2 {
-                    if matrix[point.x - c][point.y] == self.side {
-                        count += 1;
-                    } else {
-                        count_space +=1;
-                        if c == 1 { 
-                            first_space_count += 1
-                        }
+                //Vertical ,
+                2 => {
+                    if point.x as i16 - c as i16 >= 0 {
+                        return Ok(Point::new(point.x - c, point.y));
                     }
+                    Err(false)
                 }
-            } else {
-                count_flag2 = false;
-            }
-            if (count_adjacent_flag == false && count_flag == false) || count_space == 2 {
-                break;
-            }
-        }
-        if *test == std::i32::MAX {
-            if (count_flag == false || count_flag2 == false) && count < 4 {
-                count = 0;
-            }
-            if first_space_count == 2 {
-                count -=1;
-            }
-            if count_flag && count_flag2 && count > 1 {
-                count += 1;
-            }
-            *test = count;
-            // if count > 1 {
-            //     *test += adjacent_count;
-            // }
-        }
-        if adjacent_count >= 5 {
-            return true;
-        }
-        false
-    }
-
-    fn check_cross_down(
-        &mut self,
-        point: Point,
-        matrix: &mut [[u8; MAX]; MAX],
-        test: &mut i32,
-    ) -> bool {
-        let mut adjacent_count = 1;
-        let mut count = 0;
-        let mut count_adjacent_flag = true;
-        let mut count_flag = true;
-        let mut count_space = 0;
-        let mut first_space_count = 0;
-        for c in 1..5 {
-            if point.x + c == MAX || point.y + c == MAX {
-                break;
-            }
-            if matrix[point.x + c][point.y + c] == self.side {
-                if count_adjacent_flag {
-                    adjacent_count += 1;
-                }
-            } else {
-                count_adjacent_flag = false;
-            }
-
-            if matrix[point.x + c][point.y + c] != self.opposite_side() {
-                if count_flag {
-                    if matrix[point.x + c][point.y + c] == self.side {
-                        count += 1;
-                    } else {
-                        count_space += 1;
-                        if c  == 1 {
-                            first_space_count +=1;
-                        } 
+                //Cross down
+                3 => {
+                    if point.x as i16 - c as i16 >= 0 && point.y as i16 - c as i16 >= 0 {
+                        return Ok(Point::new(point.x - c, point.y - c));
                     }
+                    Err(false)
                 }
-            } else {
-                count_flag = false;
+                //Cross up
+                4 => {
+                    if point.x + c < MAX && point.y as i16 - c as i16 >= 0 {
+                        return Ok(Point::new(point.x + c, point.y - c));
+                    }
+                    Err(false)
+                }
+                _ => Err(false),
             }
-            if (count_adjacent_flag == false && count_flag == false) || count_space == 2 {
-                break;
+        }
+        fn forward(point: &Point, c: usize, direction: u8) -> Result<Point, bool> {
+            match direction {
+                //Horizon
+                1 => {
+                    if point.y + c < MAX {
+                        return Ok(Point::new(point.x, point.y + c));
+                    }
+                    Err(false)
+                }
+                //Vertical,
+                2 => {
+                    if point.x + c < MAX {
+                        return Ok(Point::new(point.x + c, point.y));
+                    }
+                    Err(false)
+                }
+                //Cross down
+                3 => {
+                    if point.x + c < MAX && point.y + c < MAX {
+                        return Ok(Point::new(point.x + c, point.y + c));
+                    }
+                    Err(false)
+                }
+                //Cross up
+                4 => {
+                    if point.x as i16 - c as i16 >= 0 && point.y + c < MAX {
+                        return Ok(Point::new(point.x - c, point.y + c));
+                    }
+                    Err(false)
+                }
+                _ => Err(false),
             }
         }
 
-        count_adjacent_flag = true;
-        let mut count_flag2 = true;
-        count_space = 0;
-        for c in 1..5 {
-            if point.x as i16 - c as i16 == -1 || point.y as i16 - c as i16 == -1 {
-                break;
-            }
-            if matrix[point.x - c][point.y - c] == self.side {
-                if count_adjacent_flag {
-                    adjacent_count += 1;
+        fn find_pos(sample: &str) -> i8 {
+            let sample_chars = sample.chars();
+            for (i, ch) in sample_chars.enumerate() {
+                if ch == '#' {
+                    return i as i8;
                 }
-            } else {
-                count_adjacent_flag = false;
             }
-            if matrix[point.x - c][point.y - c] != self.opposite_side() {
-                if count_flag2 {
-                    if matrix[point.x - c][point.y - c] == self.side {
-                        count += 1;
-                    } else {
-                        count_space += 1;
-                        if c == 1 {
-                            first_space_count +=1;
-                        }
-                    }
+            -1
+        }
+        fn is_match(
+            direction: u8,
+            point: &Point,
+            side1: u8,
+            side2: u8,
+            pos: i8,
+            sample: &str,
+            matrix: &[[u8; MAX]; MAX],
+        ) -> bool {
+            let r_starting_point = back(point, pos as usize, direction);
+            if r_starting_point.is_err() {
+                return false;
+            }
+            let starting_point = r_starting_point.unwrap();
+            for c in 0..sample.len() {
+                if sample.chars().nth(c).unwrap() == '?' {
+                    continue;
                 }
-            } else {
-                count_flag2 = false;
-            }
-            if (count_adjacent_flag == false && count_flag == false) || count_space == 2 {
-                break;
-            }
-        }
-        if *test == std::i32::MAX {
-            if (count_flag == false || count_flag2 == false) && count < 4 {
-                count = 0;
-            }
-            if first_space_count == 2 {
-                count -= 1;
-            }
-            if count_flag && count_flag2 && count > 1 {
-                count += 1;
-            }
-            *test = count;
-            // if count > 1 {
-            //     *test += adjacent_count;
-            // }
-        }
-        if adjacent_count >= 5 {
-            return true;
-        }
-        false
-    }
+                let r_next_point = forward(&starting_point, c, direction);
+                if r_next_point.is_err() {
+                    return false;
+                }
+                let next_point = r_next_point.unwrap();
+                let ch: char;
 
-    fn check_cross_up(
-        &mut self,
-        point: Point,
-        matrix: &mut [[u8; MAX]; MAX],
-        test: &mut i32,
-    ) -> bool {
-        let mut adjacent_count = 1;
-        let mut count = 0;
-        let mut count_adjacent_flag = true;
-        let mut count_flag = true;
-        let mut count_space = 0;
-        let mut first_space_count = 0;
-        for c in 1..5 {
-            if point.x as i16 - c as i16 == -1 || point.y + c == MAX {
-                break;
-            }
-            if matrix[point.x - c][point.y + c] == self.side {
-                if count_adjacent_flag {
-                    adjacent_count += 1;
-                }
-            } else {
-                count_adjacent_flag = false;
-            }
-            if matrix[point.x - c][point.y + c] != self.opposite_side() {
-                if count_flag && matrix[point.x - c][point.y + c] == self.side {
-                    if matrix[point.x - c][point.y + c] == self.side {
-                        count += 1;
+                if matrix[next_point.x][next_point.y] == 0 {
+                    if c != (pos as usize) {
+                        ch = '_';
                     } else {
-                        count_space += 1;
-                        if c == 1 {
-                            first_space_count +=1;
-                        }
+                        ch = '#';
                     }
+                } else if matrix[next_point.x][next_point.y] == side1 {
+                    ch = 'X';
+                } else if matrix[next_point.x][next_point.y] == side2 {
+                    ch = 'O';
+                } else {
+                    ch = ' ';
+                };
+
+                if ch != sample.chars().nth(c).unwrap() {
+                    return false;
                 }
-            } else {
-                count_flag = false;
             }
-            if (count_adjacent_flag == false && count_flag == false) || count_space == 2 {
-                break;
-            }
+
+            true
         }
 
-        count_adjacent_flag = true;
-        let mut count_flag2 = true;
-        count_space = 0;
-        for c in 1..5 {
-            if point.x + c == MAX || point.y as i16 - c as i16 == -1 {
-                break;
-            }
-            if matrix[point.x + c][point.y - c] == self.side {
-                if count_adjacent_flag {
-                    adjacent_count += 1;
-                }
-            } else {
-                count_adjacent_flag = false;
-            }
-            if matrix[point.x + c][point.y - c] != self.opposite_side() {
-                if count_flag2 {
-                    if matrix[point.x + c][point.y - c] == self.side {
-                        count += 1;
-                    } else {
-                        count_space +=1;
-                        if c == 1 {
-                            first_space_count +=1;
+        if *test_point > 0.0 {
+            let mut total_score = 0.0;
+
+            for (_, c_sample, score) in compound_samples {
+                let mut found_dir: HashMap<usize, i32> = HashMap::new();
+                for sample in &c_sample {
+                    let mut exit_flag = false;
+                    for d in 1..=4 {
+                        if !found_dir.contains_key(&d) {
+                            let sample_rev = sample.chars().rev().collect::<String>();
+                            let mut collection: Vec<String> = Vec::new();
+                            if sample_rev != *sample {
+                                collection.push(sample_rev);
+                            }
+                            collection.push(sample.clone());
+
+                            for test_sample in collection {
+                                let pos_result = find_pos(&test_sample);
+
+                                if pos_result >= 0
+                                    && is_match(
+                                        d as u8,
+                                        point,
+                                        self.side,
+                                        self.opposite_side(),
+                                        pos_result,
+                                        &test_sample,
+                                        matrix,
+                                    )
+                                {
+                                    found_dir.entry(d).or_insert(0);
+                                    if c_sample.len() == 1
+                                        || (found_dir.keys().len() == c_sample.len())
+                                    {
+                                        total_score += score;
+                                    }
+                                    exit_flag = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if exit_flag && c_sample.len() > 1 {
+                            break;
                         }
                     }
+                    if found_dir.is_empty() {
+                        break;
+                    }
                 }
-            } else {
-                count_flag2 = false;
+                if found_dir.keys().len() == c_sample.len() {
+                    break;
+                }
             }
-            if (count_adjacent_flag == false && count_flag == false) || count_space == 2 {
-                break;
+            *test_point = total_score;
+        }
+
+        for (_, sample, _) in winning_samples {
+            let sample_rev = sample.chars().rev().collect::<String>();
+            let mut collection: Vec<String> = Vec::new();
+
+            if sample_rev != sample {
+                collection.push(sample_rev);
+            }
+            collection.push(sample);
+            for d in 1..=4 {
+                for test_sample in &collection {
+                    let pos_result = find_pos(&test_sample);
+                    // println!("pos = {}",pos_result);
+                    if pos_result >= 0
+                        && is_match(
+                            d,
+                            point,
+                            self.side,
+                            self.opposite_side(),
+                            pos_result,
+                            &test_sample,
+                            matrix,
+                        )
+                    {
+                        return true;
+                    }
+                }
             }
         }
-        if *test == std::i32::MAX {
-            if (count_flag == false || count_flag2 == false ) && count < 4 {
-                count = 0;
-            }
-            if first_space_count == 2 {
-                count -=1;
-            }
-            if count_flag && count_flag2 && count > 1 {
-                count += 1;
-            }
-            *test = count;
-        }
-        if adjacent_count >= 5 {
-            return true;
-        }
+
         false
     }
 
@@ -424,81 +295,32 @@ impl Player {
         &mut self,
         point: Point,
         matrix: &mut [[u8; MAX]; MAX],
-        test: &mut i32,
+        test_point: &mut f32,
     ) -> bool {
         let mut yes_test = false;
-        if *test == std::i32::MAX {
+        if *test_point > 0.0 {
             yes_test = true;
         }
-        let origin_test = *test;
-        let mut test_temp = 0;
-        matrix[point.x][point.y] = self.side;
 
-        if self.check_horizon(Point::new(point.x, point.y), matrix, test) {
-            if yes_test {
-                matrix[point.x][point.y] = 0;
-            } else {
+        let origin_test_point = *test_point;
+
+        if self.check_line(&point, matrix, test_point) {
+            if !yes_test {
+                matrix[point.x][point.y] = self.side;
                 self.point_dic.push(point);
+                *test_point = origin_test_point;
+            } else if *test_point == 0.0 {
+                *test_point = origin_test_point;
             }
             return true;
         }
-
         if yes_test {
-            if *test > 0 {
-                test_temp += *test + 1;
-            }    
-            *test = std::i32::MAX;
-        }
-
-        if self.check_vertical(Point::new(point.x, point.y), matrix, test) {
-            if *test == std::i32::MAX {
-                matrix[point.x][point.y] = 0;
-            } else {
-                self.point_dic.push(point);
+            if *test_point == 0.0 {
+                *test_point = origin_test_point;
             }
-            return true;
-        }
-
-        if yes_test {
-            if *test > 0 {
-                test_temp += *test + 1;
-            }
-            *test = std::i32::MAX;
-        }
-
-        if self.check_cross_down(Point::new(point.x, point.y), matrix, test) {
-            if *test == std::i32::MAX {
-                matrix[point.x][point.y] = 0;
-            } else {
-                self.point_dic.push(point);
-            }
-            return true;
-        }
-
-        if yes_test {
-            if *test > 0 {
-                test_temp += *test + 1;
-            }
-            *test = std::i32::MAX;
-        }
-
-        if self.check_cross_up(Point::new(point.x, point.y), matrix, test) {
-            if *test == std::i32::MAX {
-                matrix[point.x][point.y] = 0;
-            } else {
-                self.point_dic.push(point);
-            }
-            return true;
-        }
-
-        if yes_test {
-            matrix[point.x][point.y] = 0;
-            if *test > 0 {
-                test_temp += *test + 1;
-            }
-            *test = test_temp;
         } else {
-            *test = origin_test;
+            *test_point = origin_test_point;
+            matrix[point.x][point.y] = self.side;
             self.point_dic.push(point);
         }
         false
@@ -512,191 +334,56 @@ impl Player {
         }
     }
 }
-pub const WIN: i16 = 10;
-pub const LOSE: i16 = -10;
-pub const DRAW: i16 = 0;
-pub const UNKNOWN: i16 = std::i16::MAX;
 
 pub fn find_best_move(
     mut ai: Player,
     mut user: Player,
     mut matrix: [[u8; MAX]; MAX],
 ) -> Option<Point> {
-    let mut best_move = None;
     let mut hash: HashMap<Point, i32> = HashMap::new();
     get_all_board_move(&mut hash, ai.point_dic.clone(), &matrix);
     get_all_board_move(&mut hash, user.point_dic.clone(), &matrix);
     let new_board = hash.keys().cloned().collect::<Vec<Point>>();
-    let mut max = std::i16::MIN;
-    let mut final_board: Vec<(Point, i32)> = Vec::new();
+    let mut final_board: Vec<(Point, f32)> = Vec::new();
     for point in new_board {
-        let mut test_for_ai = std::i32::MAX;
-        let mut test_for_user = std::i32::MAX;
+        let mut test_for_ai = 0.0001;
+        let mut test_for_user = 0.0001;
+
         if ai.add_new_point(point.clone(), &mut matrix, &mut test_for_ai) {
-            return Some(point.clone());
+            test_for_ai = 1000.0;
         }
+
         if user.add_new_point(point.clone(), &mut matrix, &mut test_for_user) {
-            return Some(point.clone());
+            test_for_user = 1000.0;
         }
-        if test_for_user >= test_for_ai {
-            final_board.push((point, test_for_user + 1));
-        } else {
-            final_board.push((point, test_for_ai));
-        }
+        // if test_for_user < 100.0 {
+        //     test_for_ai += 1.0;
+        // }
+        final_board.push((point, test_for_ai + test_for_user));
     }
-    final_board.sort_by(|a, b| a.1.cmp(&b.1));
+    final_board.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
     final_board.reverse();
-    println!("Considering points:");
+    println!("###Considering points:");
     for (point, score) in &final_board {
         print!("({},{})={} ", point.x, point.y, score);
     }
-    println!("");
-    // for (point, _) in &final_board {
-    //     if matrix[point.x][point.y] == 0 {
-    //         let value = minimax(
-    //             0,
-    //             ai.side.clone(),
-    //             point.clone(),
-    //             ai.clone(),
-    //             user.clone(),
-    //             final_board.len() as i32,
-    //             matrix,
-    //         );
-    //         if value != UNKNOWN && value > max {
-    //             best_move = Some(point.clone());
-    //             max = value;
-    //         }
-    //     }
-    // }
-    if final_board.len() > 1 {
-        let (result, _) = &final_board[0];
+    println!();
+
+    if !final_board.is_empty() {
+        let mut count = 0;
+        for (_, score) in &final_board {
+            if (*score as f32 - final_board[0].1 as f32).abs() == 0.0 {
+                count += 1;
+            } else {
+                break;
+            }
+        }
+        let mut rng = rand::thread_rng();
+        let i = rng.gen_range(0..count);
+        let (result, _) = &final_board[i];
         return Some(result.clone());
     }
-    best_move
-}
-
-pub fn check_state(
-    depth: u8,
-    turn: u8,
-    cur_move: Point,
-    ai: &mut Player,
-    user: &mut Player,
-    board_len: i32,
-    matrix: &mut [[u8; MAX]; MAX],
-) -> i16 {
-    let mut test = 0; // no test
-
-    if board_len == 0 {
-        return DRAW;
-    }
-    if turn == ai.side {
-        if ai.add_new_point(cur_move, matrix, &mut test) {
-            return WIN - depth as i16;
-        }
-    } else if user.add_new_point(cur_move, matrix, &mut test) {
-        return LOSE + depth as i16;
-    }
-    UNKNOWN
-}
-
-pub fn minimax(
-    depth: u8,
-    mut turn: u8,
-    cur_move: Point,
-    mut ai: Player,
-    mut user: Player,
-    board_len: i32,
-    mut matrix: [[u8; MAX]; MAX],
-) -> i16 {
-    let check = check_state(
-        depth,
-        turn,
-        cur_move,
-        &mut ai,
-        &mut user,
-        board_len,
-        &mut matrix,
-    );
-    if check != UNKNOWN || depth == 4 {
-        return check;
-    }
-
-    let mut hash: HashMap<Point, i32> = HashMap::new();
-    get_all_board_move(&mut hash, ai.point_dic.clone(), &matrix);
-    get_all_board_move(&mut hash, user.point_dic.clone(), &matrix);
-    let new_board = hash.keys().cloned().collect::<Vec<Point>>();
-
-    //change turn
-    if turn == ai.side {
-        turn = ai.opposite_side();
-    } else {
-        turn = ai.side;
-    }
-
-    if turn == ai.side {
-        //FIND MAX
-        let mut max = std::i16::MIN;
-        let mut final_board: Vec<(Point, i32)> = Vec::new();
-        for point in new_board {
-            let mut test_for_ai = std::i32::MAX;
-            ai.add_new_point(point.clone(), &mut matrix, &mut test_for_ai);
-            final_board.push((point, test_for_ai));
-        }
-        final_board.sort_by(|a, b| a.1.cmp(&b.1));
-        final_board.reverse();
-        let mut count_width = 0;
-        for (point, _) in &final_board {
-            if matrix[point.x][point.y] == 0 {
-                let value = minimax(
-                    depth + 1,
-                    turn,
-                    point.clone(),
-                    ai.clone(),
-                    user.clone(),
-                    final_board.len() as i32,
-                    matrix.clone(),
-                );
-                if count_width > MAX_WIDTH {
-                    return value;
-                }
-                max = std::cmp::max(max, value);
-                count_width += 1;
-            }
-        }
-        max
-    } else {
-        //FIND MIN
-        let mut min = std::i16::MIN;
-        let mut final_board: Vec<(Point, i32)> = Vec::new();
-        for point in new_board {
-            let mut test_for_user = std::i32::MAX;
-            user.add_new_point(point.clone(), &mut matrix, &mut test_for_user);
-            final_board.push((point, test_for_user));
-        }
-        final_board.sort_by(|a, b| a.1.cmp(&b.1));
-        final_board.reverse();
-        let mut count_width = 0;
-
-        for (point, _) in &final_board {
-            if matrix[point.x][point.y] == 0 {
-                let value = minimax(
-                    depth + 1,
-                    turn,
-                    point.clone(),
-                    ai.clone(),
-                    user.clone(),
-                    final_board.len() as i32,
-                    matrix.clone(),
-                );
-                if count_width > MAX_WIDTH {
-                    return value;
-                }
-                count_width += 1;
-                min = std::cmp::min(min, value);
-            }
-        }
-        min
-    }
+    None
 }
 
 pub fn get_all_board_move(
@@ -704,7 +391,6 @@ pub fn get_all_board_move(
     local_point: Vec<Point>,
     matrix: &[[u8; MAX]; MAX],
 ) {
-    // let mut result = Vec::new();
     for point in local_point {
         //Horizon
         for c in 1..DISTANCE {
@@ -800,5 +486,3 @@ pub fn get_all_board_move(
         }
     }
 }
-
-//pub minimax(all_board_move,)

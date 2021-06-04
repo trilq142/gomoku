@@ -1,6 +1,4 @@
 use gomoku_ai::{find_best_move, Player, Point, MAX};
-use std::collections::HashMap;
-use std::io::{self, Read};
 
 #[test]
 fn test_move() {
@@ -43,12 +41,12 @@ fn test_move() {
     let mut matrix: [[u8; MAX]; MAX] = [[0; MAX]; MAX];
     let mut player = Player::new(2);
     let mut ai = Player::new(1);
-    let mut test = 0;
+    let mut test = 0.0;
     print_matrix(&matrix);
     loop {
         let mut line = String::new();
         println!("Please enter your move 'x,y':");
-        let input = std::io::stdin().read_line(&mut line).unwrap();
+        let _input = std::io::stdin().read_line(&mut line).unwrap();
         let point = string_to_point(line);
         println!("You go {:?}", point);
         if matrix[point.x][point.y] != 0 {
